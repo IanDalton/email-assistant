@@ -1,4 +1,5 @@
 import email,imaplib
+from mail import Mail
 class Inbox():
     def __init__(self,email,password,mail_host,desired_inbox):
         self.email = email
@@ -14,6 +15,7 @@ class Inbox():
     def fetch_mail(self,criteria="UNSEEN"):
         res = self.mail.search(None, criteria)
         for item in res[1][0].split():
-            self.mails[item] = None
+            self.mails[item] = Mail(self.mail,item)
+    
         
     
