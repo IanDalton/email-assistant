@@ -1,0 +1,4 @@
+openai ~= 1.14.3
+python-dotenv ~= 1.0.1
+bs4 ~= 0.0.2
+openai == 1.14.3
