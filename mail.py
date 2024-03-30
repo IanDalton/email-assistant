@@ -6,10 +6,15 @@ import datetime as dt
 
 from bs4 import BeautifulSoup
 
+#TODO: On the menu it has to ask what inbox is the sent inbox
+
 class Mail:
-    def __init__(self,mail: imaplib.IMAP4_SSL,id) -> None:
+    def __init__(self,mail: imaplib.IMAP4_SSL,id,type="inbound") -> None:
         # Email controller from the user
         self.mail = mail
+        # TODO: Change this so it checks the inbox db to get the actual name
+        self.mail.select("INBOX"if type == "inbound" else "[Gmail]/Enviados")
+        
         self.id = id
         
         # Getting the email tags with some regex magic
@@ -26,12 +31,14 @@ class Mail:
         # Getting the email data without marking it as read.  
         _,data = mail.fetch(id, "(BODY.PEEK[])")
         raw_email_string = data[0][1].decode("utf-8")
+        
         email_message = email.message_from_string(raw_email_string)
         self.mail_from = email_message["From"]
         self.subject = email_message["Subject"]
         #self.date = email_message["Date"]
         self.date = dt.datetime.strptime(email_message["Date"],'%a, %d %b %Y %H:%M:%S %z')
-        
+        self.in_reply_to = email_message.get("In-Reply-To")
+        self.message =email_message
         # Getting the email body
         self.body = ""
         
