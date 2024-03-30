@@ -1,6 +1,8 @@
 import imaplib
 import email
 import re
+import os
+import datetime as dt
 
 from bs4 import BeautifulSoup
 
@@ -27,19 +29,21 @@ class Mail:
         email_message = email.message_from_string(raw_email_string)
         self.mail_from = email_message["From"]
         self.subject = email_message["Subject"]
-        self.date = email_message["Date"]
+        #self.date = email_message["Date"]
+        self.date = dt.datetime.strptime(email_message["Date"],'%a, %d %b %Y %H:%M:%S %z')
         
         # Getting the email body
         self.body = ""
         
         # The email might be a chain of emails, so we need to check if it is multipart
         if email_message.is_multipart():
-            for part in email_message.get_payload():
-                if part.get_content_type() == "text/plain" and len(part.get_payload(decode=True).decode()) > 0:
-                    self.body += part.get_payload(decode=True).decode()
-                elif part.get_content_type() == "text/html":
-                    soup = BeautifulSoup(part.get_payload(decode=True).decode(), "html.parser")
-                    self.body += soup.get_text()
+            part = email_message.get_payload(0)
+
+            if part.get_content_type() == "text/plain" and len(part.get_payload(decode=True).decode()) > 0:
+                self.body += part.get_payload(decode=True).decode()
+            elif part.get_content_type() == "text/html":
+                soup = BeautifulSoup(part.get_payload(decode=True).decode(), "html.parser")
+                self.body += soup.get_text()
         else:
             payload = email_message.get_payload(decode=True)
             if payload is not None:
@@ -51,3 +55,34 @@ class Mail:
         self.tags.append(tag)
     def mark_as_read(self):
         self.mail.store(self.id, '+FLAGS', '\\Seen')
+    def save_to_file(self):
+        counter = 1
+        if not os.path.exists("emails"):
+            os.mkdir("emails")
+        filename = f"emails/{self.subject}.txt"
+        
+        while os.path.isfile(filename):
+            filename = f"emails/{self.subject}_{counter}.txt"
+            counter += 1
+
+        with open(filename, "w") as file:
+            file.write(self.body)
+    def __eq__(self, __value: object) -> bool:
+        if type(__value) == Mail:
+            return (self.mail_from == __value.mail_from) and (self.subject == __value.subject)
+        else:
+            return False
+    def __le__(self,other):
+        return self < other
+    def __ge__(self,other):
+        return self > other
+    def __lt__(self,other):
+        if isinstance(other,Mail):
+            return self.date<other.date
+        else:
+            return False
+    def __gt__(self,other):
+        if isinstance(other,Mail):
+            return self.date>other.date
+        else:
+            return False   
