@@ -1,4 +1,4 @@
-from inbox import Inbox
+from mail.inbox import Inbox
 from dotenv import load_dotenv
 import os
 

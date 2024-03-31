@@ -58,7 +58,7 @@ class Mail:
             else:
                 self.body = None
     def add_tag(self,tag):
-        self.email.store(self.id, '+X-GM-LABELS', tag)
+        self.mail.store(self.id, '+X-GM-LABELS', tag)
         self.tags.append(tag)
     def mark_as_read(self):
         self.mail.store(self.id, '+FLAGS', '\\Seen')

@@ -13,6 +13,7 @@ class Chatbot():
         self.personality = personality
         self.functions = functions
         self.instructions = instructions
+        genai.configure(api_key=self.key)
         self.model = genai.GenerativeModel(tools=functions)
         
         
