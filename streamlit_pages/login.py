@@ -40,6 +40,8 @@ def generate_dropdown(dictionary, prefix='', level=0):
 def main(api_key_old=None,email_old=None,app_password_old=None):     
     st.title('App Login')
 
+    # Verify if the user is already logged in
+    # Try to fetch the data from the state
     if api_key_old is None:
         api_key_old = st.session_state.get('api_key', '')
     if email_old is None:
@@ -47,6 +49,7 @@ def main(api_key_old=None,email_old=None,app_password_old=None):
     if app_password_old is None:
         app_password_old = st.session_state.get('app_password', '')
 
+    # Create the input fields
     api_key = st.text_input("Enter your API key", type="password",value = api_key_old)
     email = st.text_input("Enter your email", value=email_old)
     app_password = st.text_input("Enter your app password", type="password",value=app_password_old)
@@ -62,7 +65,7 @@ def main(api_key_old=None,email_old=None,app_password_old=None):
                 st.session_state['email'] = email
                 st.session_state['app_password'] = app_password
             
-            inbox = st.session_state['inbox']
+            inbox:Inbox = st.session_state['inbox']
             if 'chatbot' not in st.session_state:
                 st.session_state['chatbot'] = Chatbot(api_key,
                   "Sos Esteban Quito miembro del centro de estudiantes del ITBA (CEITBA).",
@@ -82,11 +85,9 @@ def main(api_key_old=None,email_old=None,app_password_old=None):
                       "Mientras no sea una alta o baja, podes responder a una persona con un mail fuera de la organizacion, pero siempre termina con el linktr.ee y el instagram del CEITBA",
                   ]
                   )
-                chatbot = st.session_state['chatbot']
-                chatbot.check_key()
                 st.session_state['api_key'] = api_key
             
-            chatbot = st.session_state['chatbot']
+            chatbot:Chatbot = st.session_state['chatbot']
             chatbot.check_key()
         except Exception as e:
             st.error(f'Access denied. Please check your credentials.\n{e}')
@@ -94,8 +95,16 @@ def main(api_key_old=None,email_old=None,app_password_old=None):
             
             st.success('Access granted. Welcome to the app!')
             # Rest of the app goes here
+            st.title('Chatbot')
+            st.write('This is a chatbot that will help you answer emails. You can use it to generate answers to emails and send them.')
+            personality = st.text_input("Personality")
+            rules = ""
+            rules = st.text_area("Rules",height=rules.count('\n')+1)
+            chatbot.set_personality(personality)
+            chatbot.set_instructions(rules)
 
-   
+            
+            st.title('Emails')
             tags = generate_dropdown(inbox.fetch_tags())
             options = ['INBOX'] + [tag for tag in tags if tag != 'INBOX']
             col = st.columns(2)
@@ -142,7 +151,8 @@ def main(api_key_old=None,email_old=None,app_password_old=None):
                             if st.button('Send', key=f'SendButton_{mail.id}'):
                                 mail.respond(response.parts[0].text)
                                 del inbox.mails[mail.id]
-                                pass
+                                st.rerun()
+                                
 
 
     else:

@@ -15,7 +15,12 @@ class Chatbot():
         self.instructions = instructions
         genai.configure(api_key=self.key)
         self.model = genai.GenerativeModel(tools=functions)
-        
+    def set_personality(self,personality):
+        self.personality = personality
+    def set_instructions(self,instructions):
+        if type(instructions) == str:
+            instructions = instructions.split("\n")
+        self.instructions = instructions
     def check_key(self):
         return self.model.generate_content("Hello World")
     def add_funtion(self,func):
