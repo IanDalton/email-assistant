@@ -1,17 +1,22 @@
 import imaplib
+import smtplib
 import email
 import re
 import os
 import datetime as dt
 
 from bs4 import BeautifulSoup
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 #TODO: On the menu it has to ask what inbox is the sent inbox
 
 class Mail:
-    def __init__(self,mail: imaplib.IMAP4_SSL,id,type="inbound") -> None:
+    def __init__(self,mail: imaplib.IMAP4_SSL,id,user_email,user_passwrd,type="inbound") -> None:
         # Email controller from the user
         self.mail = mail
+        self.user_email = user_email
+        self.user_passwrd = user_passwrd
         # TODO: Change this so it checks the inbox db to get the actual name
         self.mail.select("INBOX"if type == "inbound" else "[Gmail]/Enviados")
         
@@ -35,8 +40,8 @@ class Mail:
         email_message = email.message_from_string(raw_email_string)
         self.mail_from = email_message["From"]
         self.subject = email_message["Subject"]
-        #self.date = email_message["Date"]
-        self.date = dt.datetime.strptime(email_message["Date"],'%a, %d %b %Y %H:%M:%S %z')
+        self.date = email_message["Date"]
+        #self.date = dt.datetime.strptime(email_message["Date"],'%a, %d %b %Y %H:%M:%S %z')
         self.in_reply_to = email_message.get("In-Reply-To")
         self.message =email_message
         # Getting the email body
@@ -57,11 +62,42 @@ class Mail:
                 self.body += payload.decode()
             else:
                 self.body = None
+
+    def mark_as_read(self):
+        self.mail.store(self.id, '+FLAGS', '\\Seen')
+        
+    def respond(self, response_body, smtp_server='smtp.gmail.com', smtp_port=587):
+        msg = MIMEMultipart()
+        msg['From'] = self.user_email
+        msg['To'] = self.mail_from
+        msg['Subject'] = 'Re: ' + self.subject
+        msg['In-Reply-To'] = self.message.get("Message-ID")
+        msg['References'] = self.message.get("Message-ID")
+        msg.attach(MIMEText(response_body, 'plain'))
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()  # Secure the connection
+            server.login(self.user_email, self.user_passwrd)
+            text = msg.as_string()
+            server.sendmail(self.user_email, self.mail_from, text)
+            server.quit()
+            print('Email sent successfully.')
+            self.mark_as_read()
+        except Exception as e:
+            print('Failed to send email. Error: ', str(e))
     def add_tag(self,tag):
         self.mail.store(self.id, '+X-GM-LABELS', tag)
         self.tags.append(tag)
     def mark_as_read(self):
-        self.mail.store(self.id, '+FLAGS', '\\Seen')
+        
+        try:
+            result, _ = self.mail.store(self.id, '+FLAGS', '\\Seen')
+            if result != 'OK':
+                print(f'Error marking email as read: {result}')
+            else:
+                print('Email marked as read.')
+        except Exception as e:
+            print(f'Exception occurred while marking email as read: {str(e)}')
     def save_to_file(self):
         counter = 1
         if not os.path.exists("emails"):

@@ -1,9 +1,9 @@
-from mail.inbox import Inbox
+import pandas as pd
+from streamlit_pages import login
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
-inbox = Inbox(os.getenv("USER_EMAIL"),os.getenv("APP_PASSWORD"),"imap.gmail.com","INBOX")
-inbox.fetch_mail()
-print(inbox.mails)
+login.main(os.getenv("GEMINI_API"),os.getenv("USER_EMAIL"),os.getenv("APP_PASSWORD"))
+#login.main()
 

@@ -16,7 +16,8 @@ class Chatbot():
         genai.configure(api_key=self.key)
         self.model = genai.GenerativeModel(tools=functions)
         
-        
+    def check_key(self):
+        return self.model.generate_content("Hello World")
     def add_funtion(self,func):
         if func not in self.functions:
             self.functions.append(func)
