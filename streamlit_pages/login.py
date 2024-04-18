@@ -4,6 +4,20 @@ import pandas as pd
 from mail.inbox import Inbox
 from mail.mail import Mail
 from chat.chat import Chatbot
+import asyncio
+import nest_asyncio
+nest_asyncio.apply()
+
+
+async def generate_answer(mail,chatbot):
+    chat = chatbot.new_chat()
+    response = chat.send_message(content=f"nombre completo y correo: {mail.mail_from}, Tema: {mail.subject}, contenido:{mail.body}")
+    st.session_state[f'response_{mail.id}'] = response
+
+async def send_answer(mail,response,inbox):
+    mail.respond(response.parts[0].text)
+    del inbox.mails[mail.id]
+    st.rerun()
 
 def alta(nombre:str,email:str,legajo:int):
     if "@itba.edu.ar" not in email:
@@ -14,6 +28,9 @@ def alta(nombre:str,email:str,legajo:int):
         return False
     
     print(f"Alta de {nombre} con email {email} y legajo {legajo}")
+    with open("altas.csv","a") as f:
+        f.write(f"\n{nombre},{email},{legajo}")
+        
     return True
 def baja(nombre:str,email:str,legajo:int):
     if "@itba.edu.ar" not in email:
@@ -23,10 +40,30 @@ def baja(nombre:str,email:str,legajo:int):
     except:
         return False
     print(f"Baja de {nombre} con email {email} y legajo {legajo}")
+    with open("bajas.csv","a") as f:
+        f.write(f"\n{nombre},{email},{legajo}")
     return True
 def get_perk_info(perk:str):
-    return f"Info de perk {perk}: El {perk} es un beneficio que se le otorga a los empleados de la empresa, cuesta 500$ mensuales y te permite votar en alemania"
+    perks = {
+        "gympass": """Es un beneficio para miembros del ceitba.
+        Acceso a gimnasios y estudios: Con una suscripción mensual única, externa, puedes acceder a diferentes gimnasios y estudios sin contratos ni costos adicionales. Cada plan ofrece 1 check-in diario en la categoría de acceso estándar para acceder a gimnasios y estudios asociados, ya sea presencialmente o en línea.
+Apps Asociadas ilimitadas: Además, la suscripción incluye acceso a aplicaciones asociadas que ofrecen actividades como meditación, nutrición, terapia y sesiones personales en línea.
+Beneficios para colaboradores/as:
+Mayor actividad física: Fomenta un mayor nivel de actividad física con gimnasios y estudios presenciales.
+Bienestar emocional: Alivia el estrés y promueve el cuidado personal con apps para el bienestar emocional.
+Nutrición saludable: Promueve hábitos alimentarios saludables con apps de nutrición.
+Flexibilidad: Ofrece acceso flexible al bienestar con clases on demand.
+Red de Bienestar:
 
+Más de 50,000 gimnasios y estudios presenciales.
+Más de 2,500 entrenadores personales online.
+Más de 2,000 apps y clases on demand.""",
+
+    }
+    perk = perk.lower().strip()
+    if perk not in perks:
+        return False
+    return perks[perk]
 def generate_dropdown(dictionary, prefix='', level=0):
     options = []
     for key, value in dictionary.items():
@@ -83,6 +120,10 @@ def main(api_key_old=None,email_old=None,app_password_old=None):
                       "La funcion de alta o baja va a devolver True si se pudo realizar la operacion y False si no se pudo",
                       "Si es una cadena de mails probablemente la informacion relevante este en un mail antiguo",
                       "Mientras no sea una alta o baja, podes responder a una persona con un mail fuera de la organizacion, pero siempre termina con el linktr.ee y el instagram del CEITBA",
+                      "Cuando llamas a la funcion get_perk_info esta te va a devolver un string con la informacion o un False si es que no tiene.",
+                      "Por ahora el unico perk que ofrecemos es gympass",
+                      "Cuando tengas la informacion del perk responde de forma natural la informacion que te devuelva la funcion get_perk_info",
+                      "No uses markdown para las respuestas",
                   ]
                   )
                 st.session_state['api_key'] = api_key
@@ -97,9 +138,9 @@ def main(api_key_old=None,email_old=None,app_password_old=None):
             # Rest of the app goes here
             st.title('Chatbot')
             st.write('This is a chatbot that will help you answer emails. You can use it to generate answers to emails and send them.')
-            personality = st.text_input("Personality")
+            personality = st.text_input("Personality",value=chatbot.personality)
             rules = ""
-            rules = st.text_area("Rules",height=rules.count('\n')+1)
+            rules = st.text_area("Rules",height=rules.count('\n')+1,value="\n".join(chatbot.instructions))
             chatbot.set_personality(personality)
             chatbot.set_instructions(rules)
 
@@ -107,18 +148,34 @@ def main(api_key_old=None,email_old=None,app_password_old=None):
             st.title('Emails')
             tags = generate_dropdown(inbox.fetch_tags())
             options = ['INBOX'] + [tag for tag in tags if tag != 'INBOX']
+            unread = True
             col = st.columns(2)
             with col[0]:
                 selected_option = st.selectbox('Select a tag', options)
+                if st.button('Fetch emails', key='FetchEmailsButton'):
+                    inbox.fetch_mail(criteria="UNSEEN" if unread else "ALL")
             with col[1]:
                 st.write('\n\n')
                 st.write('')
                 unread = st.checkbox('Show only unread emails',value=True)
+                if st.button('Generate answers for all emails', key='GenerateAllAnswersButton'):
+                    loop = asyncio.get_event_loop()
+                    tasks = [loop.create_task(generate_answer(mail, chatbot)) for mail in list(inbox.mails.values())]
+                    loop.run_until_complete(asyncio.gather(*tasks))
+                    st.rerun()
+                if st.button('Send answers for all emails', key='SendAllAnswersButton'):
+                    loop = asyncio.get_event_loop()
+                    tasks = [loop.create_task(send_answer(mail, st.session_state[f'response_{mail.id}'], inbox)) for mail in list(inbox.mails.values())]
+                    loop.run_until_complete(asyncio.gather(*tasks))
+                    st.rerun()
 
             inbox.change_inbox(selected_option)
+            
+            
 
-            if st.button('Fetch emails', key='FetchEmailsButton'):
-                inbox.fetch_mail(criteria="UNSEEN" if unread else "ALL")
+
+                
+           
             mail: Mail
             for mail in list(inbox.mails.values()):
                 with st.container(border=True):
